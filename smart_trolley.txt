@@ -1,0 +1,213 @@
+#include<LiquidCrystal.h>
+#include<SPI.h>
+#include<MFRC522.h>
+
+#define RST_PIN 9
+#define SS_PIN  10
+
+MFRC522 mfrc522(SS_PIN, RST_PIN);
+LiquidCrystal lcd(7,6,5,4,3,2);
+
+int dis_sw=0,access=0,in=0,y=0;
+int price=0,items=0,total=0;
+
+void setup()
+{
+  Serial.begin(9600);
+  while(!Serial);
+  SPI.begin();
+  mfrc522.PCD_Init();
+  delay(4);
+  mfrc522.PCD_DumpVersionToSerial();
+
+  lcd.begin(16,2);                 //lcd init
+  lcd.setCursor(0,0);
+  lcd.print("Hello");
+  Serial.println("Hello");
+  lcd.setCursor(0,1);
+  lcd.print("Welcome");
+  Serial.println("Welcome");
+  delay(2000);
+  lcd.clear();
+  lcd.print("Scan your Card");
+  Serial.println("Scan Your Card");
+}
+
+void loop()
+{
+  while(access==0)                   // Scan For Authentication
+  {
+    if( ! mfrc522.PICC_IsNewCardPresent())
+    {
+      return;  
+    }
+    if( ! mfrc522.PICC_ReadCardSerial())
+    {
+      return;  
+    }
+    String content="";
+    byte letter;
+    for(byte i=0; i< mfrc522.uid.size; i++)
+    {
+      content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
+      content.concat(String(mfrc522.uid.uidByte[i], HEX));
+    }
+    content.toUpperCase();
+    if(content.substring(1) == "27 D5 C8 73")                //RFID String for Authentication
+    {
+      lcd.clear();
+      lcd.print("Authorized Access");
+      Serial.println("Authorized Access");
+      delay(1000);
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("You are a member :)");
+      Serial.println("You are a member :)");
+      delay(1000);
+      access++;  
+    }
+    else
+    {
+      lcd.clear();
+      lcd.print("Access Denied");
+      Serial.println("Access Denied");
+      delay(1000);
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("You are not a member :(");
+      Serial.println("You are not a member :(");
+      delay(1000);
+      lcd.clear();
+      lcd.print("Please Try Again");
+      Serial.println("Please Try Again");
+      access=0;
+    }
+  }
+  lcd.clear();
+  while(1)     //Scan for items
+  {
+    lcd.print("Please Scan Item");
+    Serial.println("Please Scan Item");
+    delay(1000);
+    if( ! mfrc522.PICC_IsNewCardPresent())
+    {
+      return;  
+    }
+    if( ! mfrc522.PICC_ReadCardSerial())
+    {
+      return;  
+    }
+    String cont="";
+    byte let;
+    for(byte i=0; i< mfrc522.uid.size; i++)
+    {
+      cont.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
+      cont.concat(String(mfrc522.uid.uidByte[i], HEX));
+    }
+    cont.toUpperCase();
+    lcd.clear();
+    if(cont.substring(1) == "44 0E 11 20")                    //RFID String for Monaco
+    {
+      price=40;
+      dis_sw=1;
+      display(dis_sw);
+      add_or_remove();
+    }
+    else if(cont.substring(1)== "67 46 20 31")                //RFID String for La' Pinoz
+    {
+      price=100;
+      dis_sw=2;
+      display(dis_sw);
+      add_or_remove();
+    }
+    else if(cont.substring(1)== "77 5D 32 32")                //RFID String for Real Paprika
+    {
+      price=1000;
+      dis_sw=3;
+      display(dis_sw);
+      add_or_remove();
+    }
+    else
+    {
+      lcd.setCursor(0,1);
+      lcd.print("Please Scan Item");
+      Serial.println("Please Scan Item");
+    }
+  }
+}
+
+void display(int x)
+{
+  lcd.clear();
+  switch(x)
+  {
+    case 1:
+          lcd.print("Name: Monaco");
+          Serial.println("Name: Monaco");
+          lcd.setCursor(0,1);
+          lcd.print("Price: ");
+          lcd.print(price);
+          Serial.print("Price: ");
+          Serial.println(price);
+          x=0;
+          break;
+    case 2:
+          lcd.print("Name: La' Pinoz");
+          Serial.println("Name: La' Pinoz");
+          lcd.setCursor(0,1);
+          lcd.print("Price: ");
+          lcd.print(price);
+          Serial.print("Price: ");
+          Serial.println(price);
+          x=0;
+          break;
+    case 3:
+          lcd.print("Name: Real Paprika");
+          Serial.println("Name: Real Paprika");
+          lcd.setCursor(0,1);
+          lcd.print("Price: ");
+          lcd.print(price);
+          Serial.print("Price: ");
+          Serial.println(price);
+          x=0;
+          break;
+  }
+  delay(2000);
+  lcd.clear();
+  lcd.print("Add(a) or Sub(s)");
+  Serial.println("Add(a) or Sub(s)");
+  delay(2000);
+}
+
+void add_or_remove()
+{
+    y=1;
+    while(y)
+    {
+        in = Serial.read();
+        if(in=='a' || in=='s')
+        y=0;
+    }
+    lcd.clear();
+    if(in=='a')
+    {
+        total=total+price;
+        items++;
+    }
+    else if(in=='s')
+    {
+        total=total-price;
+        items--;
+    }
+    lcd.setCursor(0,0);
+    lcd.print("Total items:");
+    lcd.print(items);
+    Serial.print("Total items:");
+    Serial.println(items);
+    lcd.setCursor(0,1);
+    lcd.print("Grand Total:");
+    lcd.print(total);
+    Serial.print("Grand Total:");
+    Serial.println(total);
+    delay(2000);
+}
